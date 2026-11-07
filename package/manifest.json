@@ -1,6 +1,6 @@
 {
   "name": "CatapultRework",
-  "version_number": "0.1.1",
+  "version_number": "0.1.2",
   "website_url": "https://github.com/MajorXaker/valheim-catapult-rework",
   "description": "Artillery-style aiming for the catapult: lower the legs, look down from above and fire at a chosen spot. Server-enforced settings.",
   "dependencies": [

@@ -19,6 +19,8 @@ namespace CatapultRework
         public static ConfigEntry<float> MaxRangeMultiplier;
         public static ConfigEntry<bool> ExitOnDamage;
         public static ConfigEntry<bool> FireOnLegsUp;
+        public static ConfigEntry<bool> OnlyCatapultAmmo;
+        public static ConfigEntry<string> ExtraAllowedAmmo;
 
         // ---- Client (local) ----
         public static ConfigEntry<float> CameraHeight;
@@ -66,6 +68,12 @@ namespace CatapultRework
             FireOnLegsUp = cfg.Bind(Gameplay, "FireOnLegsUp", true,
                 Synced("If ammo is still loaded when the legs are raised, fire it the vanilla way (fixed arc). Otherwise the ammo stays loaded until the legs are lowered and it is fired by aiming."));
 
+            OnlyCatapultAmmo = cfg.Bind(Gameplay, "OnlyCatapultAmmo", true,
+                Synced("Only real catapult payloads can be loaded (the catapult's own ammo list: Grausten, Explosive and Bloodgold payloads). Vanilla lets almost any item be loaded - tools and weapons included - and flings it without damage. Applies with the legs up too."));
+
+            ExtraAllowedAmmo = cfg.Bind(Gameplay, "ExtraAllowedAmmo", "",
+                Synced("Comma-separated prefab names that may also be loaded when OnlyCatapultAmmo is on, e.g. \"Stone,BombOoze\". They fly the vanilla way: no damage unless vanilla gives them any."));
+
             CameraHeight = cfg.Bind(Client, "CameraHeight", 60f,
                 Local("Starting camera height above the target, in metres. Change it in-game with the scroll wheel.",
                     new AcceptableValueRange<float>(10f, 300f)));
@@ -95,7 +103,7 @@ namespace CatapultRework
                 Local("Show distance, ammo state and controls on screen in the aiming view."));
 
             DebugLogging = cfg.Bind(Client, "DebugLogging", false,
-                Local("Write detailed [CR] lines to the BepInEx log: entering/leaving the aiming view (with the reason), ballistics, shots, network messages. Useful for bug reports."));
+                Local("Write detailed [CR] lines to the BepInEx log: entering/leaving the aiming view (with the reason), ballistics, shots, impacts and what each explosion hit and damaged, network messages. Useful for bug reports."));
         }
 
         private static ConfigDescription Synced(string desc, AcceptableValueBase range = null) =>

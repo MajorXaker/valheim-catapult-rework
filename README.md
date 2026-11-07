@@ -66,6 +66,8 @@ BepInEx configuration manager.
 | `MaxRangeMultiplier` | `1` | Multiplies the vanilla maximum launch speed. |
 | `ExitOnDamage` | `true` | Taking damage kicks you out of the aiming view. |
 | `FireOnLegsUp` | `true` | Fire leftover ammo the vanilla way when the legs are raised. |
+| `OnlyCatapultAmmo` | `true` | Only real payloads (Grausten, Explosive, Bloodgold) can be loaded, so tools and weapons can't be launched by accident. |
+| `ExtraAllowedAmmo` | `""` | Comma-separated prefab names that may also be loaded, e.g. `Stone`. |
 
 ### 2 - Client
 
@@ -78,9 +80,23 @@ These are personal settings for camera and control feel and are not synced: `Cam
 - why the aiming view ended,
 - catapult geometry and projectile physics,
 - every shot, with the estimated vs actual release point,
+- where each shot landed and what it hit,
+- every object an explosion reached, with its tool-tier requirement and the damage left after resistances,
 - network messages.
 
 Please include these lines in bug reports.
+
+## Damage
+
+The mod changes only the launch velocity. Damage comes from the payload, as in vanilla:
+
+| Payload | Explosion damage | Radius |
+|---|---|---|
+| Grausten | 5 blunt, 5 chop, 5 pickaxe (plus 20 blunt on direct hit) | 2 m |
+| Explosive | 100 pure, 100 chop, 400 pickaxe, tool tier 5 | 3 m |
+| Bloodgold | 200 pure, 5 blunt, 200 chop, 600 pickaxe, tool tier 5 (plus 20 blunt on direct hit) | 2 m |
+
+Values were read from the game data of the dedicated server build.
 
 ## Compatibility
 

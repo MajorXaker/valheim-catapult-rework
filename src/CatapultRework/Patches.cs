@@ -41,6 +41,40 @@ namespace CatapultRework
         }
     }
 
+    /// <summary>
+    /// Only real catapult payloads can be loaded. The catapult prefab lists them itself
+    /// (m_includeItemsOverride: Grausten, Explosive and Bloodgold payloads); vanilla uses that list only
+    /// to decide damage and otherwise accepts any item with a display model, tools and weapons included.
+    /// </summary>
+    [HarmonyPatch(typeof(Catapult), nameof(Catapult.CanItemBeLoaded))]
+    internal static class Catapult_CanItemBeLoaded_Patch
+    {
+        private static void Postfix(Catapult __instance, ItemDrop.ItemData item, ref bool __result)
+        {
+            if (!ModConfig.OnlyCatapultAmmo.Value || item == null) return;
+            bool allowed = IsPayload(__instance, item) || IsExtra(item);
+            if (__result != allowed)
+                ModLog.Debug($"Load check for {item.m_shared.m_name}: vanilla says {__result}, payload filter says {allowed}");
+            __result = allowed;
+        }
+
+        internal static bool IsPayload(Catapult c, ItemDrop.ItemData item)
+        {
+            foreach (ItemDrop d in c.m_includeItemsOverride)
+                if (d != null && d.m_itemData.m_shared.m_name == item.m_shared.m_name) return true;
+            return false;
+        }
+
+        private static bool IsExtra(ItemDrop.ItemData item)
+        {
+            string list = ModConfig.ExtraAllowedAmmo.Value;
+            if (string.IsNullOrWhiteSpace(list) || item.m_dropPrefab == null) return false;
+            foreach (string part in list.Split(','))
+                if (string.Equals(part.Trim(), item.m_dropPrefab.name, System.StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+    }
+
     /// <summary>Add the "Aim" prompt to the load point tooltip when the legs are down.</summary>
     [HarmonyPatch(typeof(Catapult), nameof(Catapult.OnHoverLoadPoint))]
     internal static class Catapult_OnHoverLoadPoint_Patch

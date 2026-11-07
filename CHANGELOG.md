@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+- New server option `OnlyCatapultAmmo` (default on): only real catapult payloads can be loaded. Vanilla
+  accepts almost any item, so tools and weapons could be launched by accident. `ExtraAllowedAmmo` can
+  whitelist more prefabs.
+- Debug logging now traces each shot after release: what it hit, where, how far from the aimed point, and for
+  each explosion target its tool-tier requirement and the damage left after resistances.
+
 ## 0.1.1
 - Fixed: the aiming view closed right after opening. The damage check polled health, which also drops when
   max health shrinks as food wears off. It now uses the game's real damage event.

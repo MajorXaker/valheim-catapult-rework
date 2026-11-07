@@ -17,7 +17,7 @@ namespace CatapultRework
     {
         public const string PluginGuid = "com.majorxaker.catapultrework";
         public const string PluginName = "CatapultRework";
-        public const string PluginVersion = "0.1.1";
+        public const string PluginVersion = "0.1.2";
 
         internal static ManualLogSource Log;
         private Harmony _harmony;
