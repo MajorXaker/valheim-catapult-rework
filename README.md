@@ -71,7 +71,22 @@ BepInEx configuration manager.
 
 These are personal settings for camera and control feel and are not synced: `CameraHeight`, `CameraMinHeight`,
 `CameraMaxHeight`, `CameraPitch`, `CameraSmoothing`, `MouseSensitivity`, `KeyboardAimSpeed`,
-`ShowTrajectory`, `ShowInfoText`.
+`ShowTrajectory`, `ShowInfoText`, `DebugLogging`.
+
+`DebugLogging = true` writes detailed lines prefixed with `[CR]` to `BepInEx/LogOutput.log`:
+
+- why the aiming view ended,
+- catapult geometry and projectile physics,
+- every shot, with the estimated vs actual release point,
+- network messages.
+
+Please include these lines in bug reports.
+
+## Compatibility
+
+- **FirstPersonMode (Azumatt):** supported. The aiming camera is applied after that mod's camera
+  code, and the normal first-person view returns when you leave the aiming view.
+- Other camera mods that patch `GameCamera.UpdateCamera` should also work, because the aiming camera is applied last.
 
 ## How it works
 
@@ -114,9 +129,8 @@ GitHub Actions does the same on every push and attaches the zip to releases for 
 
 ## Status
 
-Version 0.1.0 is the first implementation. It is built against the game update of 27 October 2026 and has not been
-play-tested yet. Things to check in-game:
+Version 0.1.1 is an early build. It is built against the game update of 27 October 2026 and has not been
+play-tested much yet. The ground overlay renders correctly. Still to check in-game:
 
-- the overlay line shader,
 - the estimated release point before the first shot,
 - the camera feel at long range.

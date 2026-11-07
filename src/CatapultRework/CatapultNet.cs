@@ -55,6 +55,7 @@ namespace CatapultRework
 
         private void RPC_Aimer(long sender, long playerId)
         {
+            if (playerId != _aimerId) ModLog.Debug($"Aimer lock: {(playerId == 0 ? "released" : "taken by player " + playerId)}");
             _aimerId = playerId;
             _aimerSeen = Time.time;
         }
@@ -63,7 +64,12 @@ namespace CatapultRework
         {
             if (Catapult == null) return;
             // Ignore if the arm is already moving (double click, lag) or nothing is loaded here.
-            if (Catapult.m_armAnimTime != 0f || Catapult.m_loadedItem == null) return;
+            if (Catapult.m_armAnimTime != 0f || Catapult.m_loadedItem == null)
+            {
+                ModLog.Debug($"Fire RPC from {sender} ignored: armAnimTime={ModLog.F(Catapult.m_armAnimTime)}, loaded={(Catapult.m_loadedItem != null)}");
+                return;
+            }
+            ModLog.Debug($"Fire RPC from {sender}: target {ModLog.F(target)}");
             PendingTarget = target;
             HasPendingTarget = true;
             Catapult.CancelInvoke("Shoot");

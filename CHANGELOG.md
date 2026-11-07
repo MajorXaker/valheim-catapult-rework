@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.1
+- Fixed: the aiming view closed right after opening. The damage check polled health, which also drops when
+  max health shrinks as food wears off. It now uses the game's real damage event.
+- Fixed: the game's own 5 m feet-to-load-point check could cancel aiming at once. It is replaced by a more
+  lenient check to the catapult body, since the load point swings with the arm when firing.
+- Compatibility with Azumatt's FirstPersonMode (and other mods that redraw the camera in the same hook):
+  the aiming camera is now applied last.
+- New client option `DebugLogging`: detailed `[CR]` lines in the BepInEx log (why aiming ended,
+  ballistics, shots, network messages, estimated vs actual release point).
+
 ## 0.1.0
 - First implementation: aimed firing view with the legs down, fixed vanilla arc, solved launch speed.
 - Firing sector (±cone, min–max % of range) and a random landing point inside a dispersion cone.

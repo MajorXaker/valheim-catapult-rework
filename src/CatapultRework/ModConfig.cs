@@ -30,6 +30,7 @@ namespace CatapultRework
         public static ConfigEntry<float> KeyboardAimSpeed;
         public static ConfigEntry<bool> ShowTrajectory;
         public static ConfigEntry<bool> ShowInfoText;
+        public static ConfigEntry<bool> DebugLogging;
 
         private const string Gameplay = "1 - Gameplay (server)";
         private const string Client = "2 - Client";
@@ -92,6 +93,9 @@ namespace CatapultRework
 
             ShowInfoText = cfg.Bind(Client, "ShowInfoText", true,
                 Local("Show distance, ammo state and controls on screen in the aiming view."));
+
+            DebugLogging = cfg.Bind(Client, "DebugLogging", false,
+                Local("Write detailed [CR] lines to the BepInEx log: entering/leaving the aiming view (with the reason), ballistics, shots, network messages. Useful for bug reports."));
         }
 
         private static ConfigDescription Synced(string desc, AcceptableValueBase range = null) =>

@@ -31,7 +31,8 @@ namespace CatapultRework
         private Vector2 _mouseAccum;
         private Vector3 _moveInput;
         private bool _fireRequested;
-        private float _lastHealth;
+        private bool _damaged;
+        private float _damageTaken;
         private float _nextHeartbeat;
         private float _fireCooldownUntil;
 
@@ -51,13 +52,16 @@ namespace CatapultRework
         {
             if (player == null || player != Player.m_localPlayer) return false;
             if (!ModConfig.Enabled.Value || !CatapultMath.LegsReady(c)) return false;
-            if (Active != null) return false;
-            if (player.GetDoodadController() != null || player.IsEncumbered() || player.InPlaceMode()) return false;
+            if (Active != null) { ModLog.Debug("Enter refused: an aiming session is already active"); return false; }
+            if (player.GetDoodadController() != null) { ModLog.Debug("Enter refused: player already controls " + player.GetDoodadController()); return false; }
+            if (player.IsEncumbered()) { ModLog.Debug("Enter refused: player is encumbered"); return false; }
+            if (player.InPlaceMode()) { ModLog.Debug("Enter refused: player is in build mode"); return false; }
 
             CatapultNet net = c.GetComponent<CatapultNet>();
-            if (net == null) return false;
+            if (net == null) { ModLog.Warn("Enter refused: catapult has no CatapultNet component"); return false; }
             if (net.IsAimedByOther(player.GetPlayerID()))
             {
+                ModLog.Debug("Enter refused: another player holds the aiming lock");
                 player.Message(MessageHud.MessageType.Center, "Someone else is aiming this catapult");
                 return false;
             }
@@ -66,6 +70,11 @@ namespace CatapultRework
             ctrl.Setup(c, net, player);
             Active = ctrl;
             player.StartDoodadControl(ctrl);
+            ModLog.Debug($"Aim start: player at {ModLog.F(player.transform.position)}, load point {ModLog.F(c.m_loadPoint.transform.position)}, " +
+                         $"distance to load point {ModLog.F(Vector3.Distance(player.transform.position, c.m_loadPoint.transform.position))} m, " +
+                         $"to catapult {ModLog.F(Vector3.Distance(player.transform.position, c.transform.position))} m, " +
+                         $"owner={(c.m_nview != null && c.m_nview.IsOwner())}, loaded={(c.m_loadedItem != null ? c.m_loadedItem.m_shared.m_name : "no")}");
+            ctrl.LogGeometry();
             return true;
         }
 
@@ -75,7 +84,9 @@ namespace CatapultRework
             _net = net;
             _player = player;
             _camHeight = ModConfig.CameraHeight.Value;
-            _lastHealth = player.GetHealth();
+            float startDist = Vector3.Distance(player.transform.position, c.transform.position);
+            _leaveDistance = Mathf.Max(startDist, player.m_maxInteractDistance) + ExtraLeaveDistance;
+            _player.m_onDamaged = (System.Action<float, Character>)System.Delegate.Combine(_player.m_onDamaged, new System.Action<float, Character>(OnPlayerDamaged));
             RecomputeGeometry();
             _yawDeg = 0f;
             _dist = Mathf.Lerp(_minR, _maxR, 0.5f);
@@ -86,8 +97,10 @@ namespace CatapultRework
 
         private bool _stopped;
 
-        public void Stop()
+        public void Stop(string reason)
         {
+            ModLog.Debug("Aim stop: " + reason);
+            _stopping = true;
             // StopDoodadControl only calls OnUseStop while IsValid() is true, so always clean up afterwards.
             if (_player != null && _player.GetDoodadController() == (IDoodadController)this)
                 _player.StopDoodadControl();
@@ -98,6 +111,7 @@ namespace CatapultRework
         {
             if (_stopped) return;
             _stopped = true;
+            UnhookDamage();
             if (Active == this) Active = null;
             if (_net != null) _net.SendAimer(0L);
             DestroyLines();
@@ -106,23 +120,51 @@ namespace CatapultRework
 
         private void OnDestroy()
         {
+            if (!_stopped) ModLog.Debug("Aim stop: controller destroyed (catapult removed or unloaded)");
+            UnhookDamage();
             if (Active == this) Active = null;
             DestroyLines();
         }
 
+        private void UnhookDamage()
+        {
+            if (_player != null)
+                _player.m_onDamaged = (System.Action<float, Character>)System.Delegate.Remove(_player.m_onDamaged, new System.Action<float, Character>(OnPlayerDamaged));
+        }
+
+        // Real hits only. (Max health shrinking as food wears off also lowers current health, so polling health is wrong.)
+        private void OnPlayerDamaged(float damage, Character attacker)
+        {
+            if (damage <= 0.05f) return;
+            _damaged = true;
+            _damageTaken += damage;
+        }
+
         // ---------------------------------------------------------------- IDoodadController
 
-        public void OnUseStop(Player player) => Cleanup();
+        public void OnUseStop(Player player)
+        {
+            if (!_stopping) ModLog.Debug("Aim stop: released by the game (right click / jump / dodge / Use key)");
+            Cleanup();
+        }
 
         public void ApplyControlls(Vector3 moveDir, Vector3 lookDir, bool run, bool autoRun, bool block) { }
 
         public Component GetControlledComponent() => _catapult;
 
+        // Vanilla stops control when the player's feet are farther than m_maxInteractDistance (5 m) from this
+        // point, which can already be true when aiming starts (hover range is measured from the eyes).
+        // Return the player's own position and do a more lenient check in Update instead.
         public Vector3 GetPosition() =>
-            _catapult != null ? _catapult.m_loadPoint.transform.position : transform.position;
+            _player != null ? _player.transform.position : transform.position;
 
-        public bool IsValid() =>
-            this != null && _catapult != null && ModConfig.Enabled.Value && CatapultMath.LegsReady(_catapult);
+        private const float ExtraLeaveDistance = 3f;
+        private float _leaveDistance;
+        private bool _stopping;
+
+        // Kept minimal on purpose: if this returns false the game drops control silently, so all exit
+        // conditions (legs, distance, damage...) are checked in Update where the reason can be logged.
+        public bool IsValid() => this != null && _catapult != null && !_stopped;
 
         // ---------------------------------------------------------------- input from patches
 
@@ -136,25 +178,28 @@ namespace CatapultRework
         {
             if (_player != null && _player.GetDoodadController() != (IDoodadController)this)
             {
-                Cleanup(); // control was released by the game without telling us
+                ModLog.Debug("Aim stop: control was released by the game without notice");
+                Cleanup();
                 return;
             }
-            if (!IsValid() || _player == null || _player.IsDead())
-            {
-                Stop();
-                return;
-            }
+            if (_player == null || _player.IsDead()) { Stop("player dead or missing"); return; }
+            if (_catapult == null) { Stop("catapult gone"); return; }
+            if (!ModConfig.Enabled.Value) { Stop("mod disabled by server config"); return; }
+            if (!CatapultMath.LegsReady(_catapult)) { Stop("legs raised or moving"); return; }
 
-            if (ModConfig.ExitOnDamage.Value && _player.GetHealth() < _lastHealth - 0.01f)
+            // Measured to the catapult body: the load point sits on the arm and swings away when firing.
+            float d = Vector3.Distance(_player.transform.position, _catapult.transform.position);
+            if (d > _leaveDistance) { Stop($"player too far from catapult ({ModLog.F(d)} m > {ModLog.F(_leaveDistance)} m)"); return; }
+
+            if (_damaged)
             {
-                Stop();
-                return;
+                _damaged = false;
+                if (ModConfig.ExitOnDamage.Value) { Stop($"took {ModLog.F(_damageTaken)} damage"); return; }
             }
-            _lastHealth = _player.GetHealth();
 
             if (ZInput.GetKeyDown(KeyCode.Escape))
             {
-                Stop();
+                Stop("Esc pressed");
                 return;
             }
 
@@ -190,6 +235,16 @@ namespace CatapultRework
                 _absMaxR = 10f;
             _minR = Mathf.Max(1f, _absMaxR * ModConfig.MinRangeFraction);
             _maxR = Mathf.Max(_minR + 0.1f, _absMaxR * ModConfig.MaxRangeFraction);
+        }
+
+        internal void LogGeometry()
+        {
+            if (!ModLog.DebugEnabled) return;
+            ModLog.Debug($"Geometry: front {ModLog.F(_front)}, elevation {ModLog.F(_params.ElevationRad * Mathf.Rad2Deg)}°, " +
+                         $"vanilla speed {ModLog.F(CatapultMath.VanillaSpeed(_catapult))}, max speed {ModLog.F(CatapultMath.MaxSpeed(_catapult))}, " +
+                         $"gravity {ModLog.F(_params.Gravity)}, drag {ModLog.F(_params.Drag)}, ttl {ModLog.F(_params.MaxTime)}, dt {ModLog.F(_params.Dt)}, " +
+                         $"est. launch {ModLog.F(_launch)} (cached={_net.HasCachedLaunchOffset}), max range {ModLog.F(_absMaxR)} m, " +
+                         $"allowed {ModLog.F(_minR)}–{ModLog.F(_maxR)} m, cone ±{ModLog.F(ModConfig.AimConeDegrees.Value)}°");
         }
 
         private void UpdateMarker(float dt)
@@ -239,11 +294,13 @@ namespace CatapultRework
             if (Time.time < _fireCooldownUntil) return;
             if (!CatapultMath.IsLoaded(_catapult))
             {
+                ModLog.Debug($"Fire refused: not loaded (item={(_catapult.m_loadedItem != null)}, armAnimTime={ModLog.F(_catapult.m_armAnimTime)})");
                 _player.Message(MessageHud.MessageType.Center, "The catapult is not loaded");
                 return;
             }
             if (!_targetValid)
             {
+                ModLog.Debug($"Fire refused: target {ModLog.F(_target)} unreachable");
                 _player.Message(MessageHud.MessageType.Center, "Target out of reach");
                 return;
             }
@@ -254,6 +311,8 @@ namespace CatapultRework
             Vector3 aim = _target + right * ox + DirAt(_yawDeg) * oz;
             aim.y = CatapultMath.GroundHeight(aim);
 
+            ModLog.Debug($"Fire: marker {ModLog.F(_target)} (yaw {ModLog.F(_yawDeg)}°, dist {ModLog.F(_dist)} m), " +
+                         $"spread radius {ModLog.F(SpreadRadius())} m, chosen point {ModLog.F(aim)}, est. launch {ModLog.F(_launch)}");
             _net.SendFire(aim);
             _fireCooldownUntil = Time.time + Mathf.Max(0.5f, _catapult.m_armAnimationTime);
         }

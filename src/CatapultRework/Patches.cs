@@ -33,7 +33,11 @@ namespace CatapultRework
         private static void Postfix(Catapult __instance, ItemDrop.ItemData item, bool __result)
         {
             if (!ModConfig.Enabled.Value || item == null || !__result) return;
-            if (__instance.m_lockedLegs) __instance.CancelInvoke("Shoot");
+            if (__instance.m_lockedLegs)
+            {
+                __instance.CancelInvoke("Shoot");
+                ModLog.Debug($"Loaded {item.m_shared.m_name} with legs down: auto-fire cancelled");
+            }
         }
     }
 
@@ -68,11 +72,15 @@ namespace CatapultRework
             if (wasLocked)
             {
                 if (ModConfig.FireOnLegsUp.Value)
+                {
                     __instance.Invoke("Shoot", __instance.m_legAnimationTime + __instance.m_shootAfterLoadDelay);
+                    ModLog.Debug("Legs raised with ammo loaded: vanilla shot scheduled");
+                }
             }
             else
             {
                 __instance.CancelInvoke("Shoot");
+                ModLog.Debug("Legs lowered with ammo loaded: pending vanilla shot cancelled");
             }
         }
     }
@@ -86,7 +94,11 @@ namespace CatapultRework
             AimController a = AimController.Active;
             Player p = Player.m_localPlayer;
             if (a == null || p == null || a.gameObject != __instance.gameObject) return;
-            if (__instance.m_launchCharacters.Remove(p)) p.ReleaseTempParent();
+            if (__instance.m_launchCharacters.Remove(p))
+            {
+                p.ReleaseTempParent();
+                ModLog.Debug("Aiming player removed from the launch area");
+            }
         }
     }
 
@@ -113,6 +125,7 @@ namespace CatapultRework
             }
             Current = __instance;
             CurrentNet = net;
+            ModLog.Debug($"Release: aimed shot at {ModLog.F(net.PendingTarget)}, owner={__instance.m_nview.IsOwner()} (only the owner spawns the projectile)");
         }
 
         private static void Postfix(Catapult __instance)
@@ -134,13 +147,19 @@ namespace CatapultRework
             if (c == null || net == null) return;
 
             Vector3 launch = __instance.transform.position;
+            if (ModLog.DebugEnabled)
+            {
+                Vector3 est = CatapultMath.EstimatedLaunchPoint(c, net);
+                ModLog.Debug($"Projectile setup: actual launch {ModLog.F(launch)}, estimated {ModLog.F(est)} (error {ModLog.F(Vector3.Distance(launch, est))} m), vanilla velocity {ModLog.F(velocity)} |{ModLog.F(velocity.magnitude)}|");
+            }
             net.CachedLaunchOffset = c.transform.InverseTransformPoint(launch);
             net.HasCachedLaunchOffset = true;
 
             Ballistics.Params p = CatapultMath.ParamsFor(c, __instance);
-            bool ok = CatapultMath.SolveVelocity(p, launch, net.PendingTarget, CatapultMath.MaxSpeed(c), out Vector3 v, out _);
+            bool ok = CatapultMath.SolveVelocity(p, launch, net.PendingTarget, CatapultMath.MaxSpeed(c), out Vector3 v, out float t);
             if (!ok)
-                Plugin.Log.LogDebug("Aimed target unreachable from actual release point; firing at maximum speed.");
+                ModLog.Debug("Aimed target unreachable from actual release point; firing at maximum speed.");
+            ModLog.Debug($"Projectile setup: solved velocity {ModLog.F(v)} |{ModLog.F(v.magnitude)}|, gravity {ModLog.F(p.Gravity)}, drag {ModLog.F(p.Drag)}, ttl {ModLog.F(p.MaxTime)}, predicted flight {ModLog.F(t)} s");
             velocity = v;
         }
     }
@@ -177,16 +196,28 @@ namespace CatapultRework
         }
     }
 
-    /// <summary>Overhead camera while aiming.</summary>
+    /// <summary>
+    /// Overhead camera while aiming.
+    /// The prefix skips vanilla camera logic (and its scroll zoom). Camera mods such as Azumatt's
+    /// FirstPersonMode re-implement the camera in their own UpdateCamera postfix, which still runs
+    /// after a skipped original, so the final camera transform is written in a postfix that runs last.
+    /// </summary>
     [HarmonyPatch(typeof(GameCamera), nameof(GameCamera.UpdateCamera))]
     internal static class GameCamera_UpdateCamera_Patch
     {
-        private static bool Prefix(GameCamera __instance, float dt)
+        private static bool Prefix(GameCamera __instance)
         {
             AimController a = AimController.Active;
-            if (a == null || __instance.m_freeFly) return true;
+            return a == null || __instance.m_freeFly;
+        }
+
+        [HarmonyPriority(Priority.Last)]
+        [HarmonyAfter("Azumatt.FirstPersonMode")]
+        private static void Postfix(GameCamera __instance, float dt)
+        {
+            AimController a = AimController.Active;
+            if (a == null || __instance.m_freeFly) return;
             a.UpdateCamera(__instance, dt);
-            return false;
         }
     }
 }
