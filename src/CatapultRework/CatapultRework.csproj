@@ -1,0 +1,78 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Optional local overrides (game path). Not committed: see Environment.props.example -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\Environment.props" Condition="Exists('$(MSBuildThisFileDirectory)..\..\Environment.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>net462</TargetFramework>
+    <AssemblyName>CatapultRework</AssemblyName>
+    <Version>0.1.0</Version>
+    <RootNamespace>CatapultRework</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Unity ships netstandard facades; version-mismatch notices are harmless. -->
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RestoreAdditionalProjectSources>https://nuget.bepinex.dev/v3/index.json</RestoreAdditionalProjectSources>
+    <!-- Valheim install folder. Override in Environment.props or with -p:VALHEIM_INSTALL=... -->
+    <VALHEIM_INSTALL Condition="'$(VALHEIM_INSTALL)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Valheim</VALHEIM_INSTALL>
+    <VALHEIM_MANAGED Condition="'$(VALHEIM_MANAGED)' == '' And Exists('$(VALHEIM_INSTALL)\valheim_Data\Managed')">$(VALHEIM_INSTALL)\valheim_Data\Managed</VALHEIM_MANAGED>
+    <VALHEIM_MANAGED Condition="'$(VALHEIM_MANAGED)' == '' And Exists('$(VALHEIM_INSTALL)\valheim_server_Data\Managed')">$(VALHEIM_INSTALL)\valheim_server_Data\Managed</VALHEIM_MANAGED>
+    <VALHEIM_MANAGED Condition="'$(VALHEIM_MANAGED)' == ''">$(VALHEIM_INSTALL)\valheim_Data\Managed</VALHEIM_MANAGED>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
+    <PackageReference Include="JotunnLib" Version="2.30.2" PrivateAssets="all" ExcludeAssets="runtime;build;buildTransitive" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="assembly_valheim" Publicize="true">
+      <HintPath>$(VALHEIM_MANAGED)\assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_guiutils">
+      <HintPath>$(VALHEIM_MANAGED)\assembly_guiutils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>$(VALHEIM_MANAGED)\assembly_utils.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(VALHEIM_MANAGED)\UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(VALHEIM_MANAGED)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(VALHEIM_MANAGED)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(VALHEIM_MANAGED)\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(VALHEIM_MANAGED)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Never copy game/BepInEx/Jötunn assemblies next to the mod. -->
+  <Target Name="StripCopyLocal" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Optional: copy the built DLL into a local BepInEx plugins folder (set MOD_DEPLOYPATH in Environment.props). -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(MOD_DEPLOYPATH)' != ''">
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(MOD_DEPLOYPATH)" />
+  </Target>
+</Project>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copy to Environment.props (git-ignored) and adjust. -->
+<Project>
+  <PropertyGroup>
+    <!-- Valheim client install folder (or a dedicated server folder). -->
+    <VALHEIM_INSTALL>C:\Program Files (x86)\Steam\steamapps\common\Valheim</VALHEIM_INSTALL>
+    <!-- Optional: copy the built DLL here after every build. -->
+    <!-- <MOD_DEPLOYPATH>$(VALHEIM_INSTALL)\BepInEx\plugins\CatapultRework</MOD_DEPLOYPATH> -->
+  </PropertyGroup>
+</Project>

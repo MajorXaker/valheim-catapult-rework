@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+Environment.props
+DoPrebuild.props
+/package/plugins/
+/dist/
+/game/
+.tools/
