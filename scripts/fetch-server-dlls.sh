@@ -11,8 +11,15 @@ mkdir -p "$TOOLS" "$OUT"
 if [ ! -x "$TOOLS/DepotDownloader/DepotDownloader" ]; then
   # Pinned release (override with DD_TAG=...). Retries guard against transient GitHub 5xx errors.
   TAG="${DD_TAG:-DepotDownloader_3.4.0}"
-  curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o "$TOOLS/dd.zip" \
-    "https://github.com/SteamRE/DepotDownloader/releases/download/$TAG/DepotDownloader-linux-x64.zip"
+  if ! curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors -o "$TOOLS/dd.zip" \
+    "https://github.com/SteamRE/DepotDownloader/releases/download/$TAG/DepotDownloader-linux-x64.zip"; then
+    if [ -f "$OUT/valheim_server_Data/Managed/assembly_valheim.dll" ]; then
+      echo "::warning::Could not download DepotDownloader; using the DLLs already in $OUT (possibly from an older game version)"
+      exit 0
+    fi
+    echo "Could not download DepotDownloader and no cached DLLs are present" >&2
+    exit 1
+  fi
   python3 -c "import zipfile,sys;zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$TOOLS/dd.zip" "$TOOLS/DepotDownloader"
   chmod +x "$TOOLS/DepotDownloader/DepotDownloader"
 fi
