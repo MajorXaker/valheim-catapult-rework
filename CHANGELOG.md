@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3
+- Fixed: shots did no damage to far targets (Ashlands fortresses, grausten debris). Damage is applied only
+  by an object's owner, and objects more than ~96 m from every player have none, so the hit was dropped.
+  The shooter now claims unowned objects right before a catapult projectile or explosion hits them.
+- Fixed: right click did not leave the aiming view (RMB is bound to Block, which vanilla ignores here).
+  It no longer raises the shield either.
+- The catapult is anchored while its legs are down and no longer creeps between shots. It still settles
+  if the ground under it is changed. Server option `AnchorWhenLegsDown`.
+- The on-screen text is replaced by a three-line controls hint (fire, aim, exit) in the game's font,
+  in the lower right. Vanilla key hints are hidden while aiming. Client options `ShowControlsHint`
+  (replaces `ShowInfoText`), `HintOffsetX`, `HintOffsetY`, `HintFontSize`.
+
 ## 0.1.2
 - New server option `OnlyCatapultAmmo` (default on): only real catapult payloads can be loaded. Vanilla
   accepts almost any item, so tools and weapons could be launched by accident. `ExtraAllowedAmmo` can

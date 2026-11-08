@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 
 namespace CatapultRework
@@ -31,6 +32,9 @@ namespace CatapultRework
         private Vector2 _mouseAccum;
         private Vector3 _moveInput;
         private bool _fireRequested;
+        private string _exitRequested;
+        private TextMeshProUGUI _hint;
+        private bool _hintGamepad;
         private bool _damaged;
         private float _damageTaken;
         private float _nextHeartbeat;
@@ -93,6 +97,7 @@ namespace CatapultRework
             _net.SendAimer(player.GetPlayerID());
             _nextHeartbeat = Time.time + CatapultNet.AimerHeartbeat;
             CreateLines();
+            CreateHint();
         }
 
         private bool _stopped;
@@ -115,6 +120,7 @@ namespace CatapultRework
             if (Active == this) Active = null;
             if (_net != null) _net.SendAimer(0L);
             DestroyLines();
+            DestroyHint();
             if (this != null) Destroy(this);
         }
 
@@ -124,6 +130,7 @@ namespace CatapultRework
             UnhookDamage();
             if (Active == this) Active = null;
             DestroyLines();
+            DestroyHint();
         }
 
         private void UnhookDamage()
@@ -171,6 +178,7 @@ namespace CatapultRework
         internal void AddMouse(Vector2 delta) => _mouseAccum += delta;
         internal void SetMove(Vector3 move) => _moveInput = move;
         internal void RequestFire() => _fireRequested = true;
+        internal void RequestExit(string reason) => _exitRequested ??= reason;
 
         // ---------------------------------------------------------------- update
 
@@ -197,9 +205,11 @@ namespace CatapultRework
                 if (ModConfig.ExitOnDamage.Value) { Stop($"took {ModLog.F(_damageTaken)} damage"); return; }
             }
 
-            if (ZInput.GetKeyDown(KeyCode.Escape))
+            if (ZInput.GetKeyDown(KeyCode.Escape)) _exitRequested ??= "Esc pressed";
+            if (ZInput.GetButtonDown("Block") || ZInput.GetButtonDown("JoyBlock")) _exitRequested ??= "RMB (block) pressed";
+            if (_exitRequested != null)
             {
-                Stop("Esc pressed");
+                Stop(_exitRequested);
                 return;
             }
 
@@ -220,6 +230,7 @@ namespace CatapultRework
             }
 
             UpdateLines();
+            UpdateHint();
         }
 
         private void RecomputeGeometry()
@@ -464,23 +475,57 @@ namespace CatapultRework
             }
         }
 
-        private void OnGUI()
+        // ---------------------------------------------------------------- controls hint
+
+        private void CreateHint()
         {
-            if (!ModConfig.ShowInfoText.Value || Active != this || _catapult == null) return;
-            string ammo = CatapultMath.IsLoaded(_catapult)
-                ? "Loaded: " + Localization.instance.Localize(_catapult.m_loadedItem.m_shared.m_name)
-                : "Not loaded";
-            string state = _targetValid ? $"Flight time {_flightTime:0.0} s" : "Out of reach";
-            string text =
-                $"Distance {_dist:0} m  ({_dist / Mathf.Max(_absMaxR, 1f) * 100f:0}% of max {_absMaxR:0} m)\n" +
-                $"Spread radius {SpreadRadius():0.0} m   {state}\n{ammo}\n" +
-                "LMB fire   Mouse/WASD aim   Wheel zoom   RMB/Jump/Esc exit";
-            var style = new GUIStyle(GUI.skin.label) { fontSize = 16, alignment = TextAnchor.UpperLeft };
-            style.normal.textColor = Color.black;
-            Rect r = new Rect(21, 21, 700, 120);
-            GUI.Label(r, text, style);
-            style.normal.textColor = Color.white;
-            GUI.Label(new Rect(20, 20, 700, 120), text, style);
+            if (!ModConfig.ShowControlsHint.Value || Hud.instance == null) return;
+            TextMeshProUGUI style = Hud.instance.m_hoverName;
+            Canvas canvas = Hud.instance.m_rootObject != null ? Hud.instance.m_rootObject.GetComponentInParent<Canvas>() : null;
+            if (style == null || canvas == null) { ModLog.Debug("Controls hint unavailable: HUD text or canvas not found"); return; }
+
+            var go = new GameObject("CatapultRework_ControlsHint", typeof(RectTransform));
+            go.transform.SetParent(canvas.rootCanvas.transform, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 0f);
+            rt.anchoredPosition = new Vector2(-ModConfig.HintOffsetX.Value, ModConfig.HintOffsetY.Value);
+            rt.sizeDelta = new Vector2(800f, 200f);
+
+            _hint = go.AddComponent<TextMeshProUGUI>();
+            _hint.font = style.font;                         // Valheim's own font and outline material
+            _hint.fontSharedMaterial = style.fontSharedMaterial;
+            _hint.fontSize = ModConfig.HintFontSize.Value;
+            _hint.color = Color.white;
+            _hint.alignment = TextAlignmentOptions.BottomRight;
+            _hint.raycastTarget = false;
+            _hint.richText = true;
+            _hint.lineSpacing = 10f;
+            RefreshHintText();
+        }
+
+        private void RefreshHintText()
+        {
+            if (_hint == null) return;
+            _hintGamepad = ZInput.IsGamepadActive();
+            string aimKeys = _hintGamepad ? "Left stick" : "Mouse</b></color>] [<color=yellow><b>$KEY_Forward $KEY_Left $KEY_Backward $KEY_Right";
+            _hint.text = Localization.instance.Localize(
+                "[<color=yellow><b>$KEY_Attack</b></color>] Fire\n" +
+                "[<color=yellow><b>" + aimKeys + "</b></color>] Aim\n" +
+                "[<color=yellow><b>$KEY_Block</b></color>] Exit");
+        }
+
+        private void UpdateHint()
+        {
+            if (_hint == null) return;
+            if (_hintGamepad != ZInput.IsGamepadActive()) RefreshHintText();
+            bool show = Hud.instance == null || Hud.instance.m_userHidden == false;
+            if (_hint.gameObject.activeSelf != show) _hint.gameObject.SetActive(show);
+        }
+
+        private void DestroyHint()
+        {
+            if (_hint != null) Destroy(_hint.gameObject);
+            _hint = null;
         }
     }
 }

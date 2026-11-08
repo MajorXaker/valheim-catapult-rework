@@ -21,6 +21,7 @@ namespace CatapultRework
         public static ConfigEntry<bool> FireOnLegsUp;
         public static ConfigEntry<bool> OnlyCatapultAmmo;
         public static ConfigEntry<string> ExtraAllowedAmmo;
+        public static ConfigEntry<bool> AnchorWhenLegsDown;
 
         // ---- Client (local) ----
         public static ConfigEntry<float> CameraHeight;
@@ -31,7 +32,10 @@ namespace CatapultRework
         public static ConfigEntry<float> MouseSensitivity;
         public static ConfigEntry<float> KeyboardAimSpeed;
         public static ConfigEntry<bool> ShowTrajectory;
-        public static ConfigEntry<bool> ShowInfoText;
+        public static ConfigEntry<bool> ShowControlsHint;
+        public static ConfigEntry<float> HintOffsetX;
+        public static ConfigEntry<float> HintOffsetY;
+        public static ConfigEntry<float> HintFontSize;
         public static ConfigEntry<bool> DebugLogging;
 
         private const string Gameplay = "1 - Gameplay (server)";
@@ -74,6 +78,9 @@ namespace CatapultRework
             ExtraAllowedAmmo = cfg.Bind(Gameplay, "ExtraAllowedAmmo", "",
                 Synced("Comma-separated prefab names that may also be loaded when OnlyCatapultAmmo is on, e.g. \"Stone,BombOoze\". They fly the vanilla way: no damage unless vanilla gives them any."));
 
+            AnchorWhenLegsDown = cfg.Bind(Gameplay, "AnchorWhenLegsDown", true,
+                Synced("With the legs down the catapult is held in place: shots, players and physics no longer nudge it. It still drops or tilts if the ground under it is changed (dug, raised or destroyed), then stays put again."));
+
             CameraHeight = cfg.Bind(Client, "CameraHeight", 60f,
                 Local("Starting camera height above the target, in metres. Change it in-game with the scroll wheel.",
                     new AcceptableValueRange<float>(10f, 300f)));
@@ -99,8 +106,19 @@ namespace CatapultRework
             ShowTrajectory = cfg.Bind(Client, "ShowTrajectory", true,
                 Local("Draw the predicted flight path in the aiming view."));
 
-            ShowInfoText = cfg.Bind(Client, "ShowInfoText", true,
-                Local("Show distance, ammo state and controls on screen in the aiming view."));
+            ShowControlsHint = cfg.Bind(Client, "ShowControlsHint", true,
+                Local("Show the controls (fire, aim, exit) on screen in the aiming view."));
+
+            HintOffsetX = cfg.Bind(Client, "HintOffsetX", 40f,
+                Local("Distance of the controls hint from the right edge of the screen, in HUD pixels (the HUD canvas scales with resolution).",
+                    new AcceptableValueRange<float>(0f, 1900f)));
+
+            HintOffsetY = cfg.Bind(Client, "HintOffsetY", 120f,
+                Local("Distance of the controls hint from the bottom edge of the screen, in HUD pixels (the HUD canvas scales with resolution).",
+                    new AcceptableValueRange<float>(0f, 1060f)));
+
+            HintFontSize = cfg.Bind(Client, "HintFontSize", 20f,
+                Local("Font size of the controls hint.", new AcceptableValueRange<float>(8f, 60f)));
 
             DebugLogging = cfg.Bind(Client, "DebugLogging", false,
                 Local("Write detailed [CR] lines to the BepInEx log: entering/leaving the aiming view (with the reason), ballistics, shots, impacts and what each explosion hit and damaged, network messages. Useful for bug reports."));

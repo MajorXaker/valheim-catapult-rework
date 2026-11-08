@@ -18,7 +18,7 @@ Artillery-style aiming for the Valheim catapult, in the spirit of World of Tanks
 | Mouse / WASD / left stick | Move the marker |
 | Mouse wheel | Zoom (camera height) |
 | Left click / attack | Fire (only if loaded and the target is reachable) |
-| Right click, Jump, Dodge or Esc | Leave the aiming view |
+| Right click (block), Jump, Dodge or Esc | Leave the aiming view |
 
 The ground overlay shows:
 
@@ -30,6 +30,12 @@ The ground overlay shows:
 
 Reloading is not possible from the aiming view. Leave the view and load, or have a teammate load
 while you aim. Teammates' loads do not fire on their own while the legs are down.
+
+A short controls hint (fire, aim, exit) is shown in the lower right in the game's font. Its position
+and size are set by `HintOffsetX`, `HintOffsetY` and `HintFontSize`.
+
+With the legs down the catapult is anchored: shots and bumps no longer move it. If the ground under it
+changes, it settles onto the new ground and is anchored again (`AnchorWhenLegsDown`).
 
 Only one player can aim a catapult at a time. If ammo is still loaded when the legs are raised, it
 is fired the vanilla way once the legs are up (`FireOnLegsUp`).
@@ -68,12 +74,14 @@ BepInEx configuration manager.
 | `FireOnLegsUp` | `true` | Fire leftover ammo the vanilla way when the legs are raised. |
 | `OnlyCatapultAmmo` | `true` | Only real payloads (Grausten, Explosive, Bloodgold) can be loaded, so tools and weapons can't be launched by accident. |
 | `ExtraAllowedAmmo` | `""` | Comma-separated prefab names that may also be loaded, e.g. `Stone`. |
+| `AnchorWhenLegsDown` | `true` | Hold the catapult in place while its legs are down. It still settles if the ground under it changes. |
 
 ### 2 - Client
 
 These are personal settings for camera and control feel and are not synced: `CameraHeight`, `CameraMinHeight`,
 `CameraMaxHeight`, `CameraPitch`, `CameraSmoothing`, `MouseSensitivity`, `KeyboardAimSpeed`,
-`ShowTrajectory`, `ShowInfoText`, `DebugLogging`.
+`ShowTrajectory`, `ShowControlsHint`, `HintOffsetX` / `HintOffsetY` (distance of the hint from the
+lower-right corner in HUD pixels, defaults 40 / 120), `HintFontSize` (20), `DebugLogging`.
 
 `DebugLogging = true` writes detailed lines prefixed with `[CR]` to `BepInEx/LogOutput.log`:
 
@@ -97,6 +105,14 @@ The mod changes only the launch velocity. Damage comes from the payload, as in v
 | Bloodgold | 200 pure, 5 blunt, 200 chop, 600 pickaxe, tool tier 5 (plus 20 blunt on direct hit) | 2 m |
 
 Values were read from the game data of the dedicated server build.
+
+### Far targets
+
+In Valheim only the owner of an object applies damage to it, and objects get an owner only within about
+1.5 zones (~96 m) of a player. Aimed shots land farther than that, where buildings and rocks are loaded but
+unowned, so vanilla silently drops the hit. The same thing has been reported in vanilla when firing at
+fortresses from the edge of range. The mod lets the shooter take ownership of an unowned object right
+before a catapult projectile or explosion hits it; the game hands it back on its own afterwards.
 
 ## Compatibility
 

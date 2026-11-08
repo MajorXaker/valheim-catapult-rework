@@ -11,6 +11,8 @@ namespace CatapultRework
         {
             if (__instance.GetComponent<CatapultNet>() != null) return;
             __instance.gameObject.AddComponent<CatapultNet>().Init(__instance, __instance.m_nview);
+            if (__instance.GetComponent<CatapultAnchor>() == null)
+                __instance.gameObject.AddComponent<CatapultAnchor>().Init(__instance);
         }
     }
 
@@ -218,15 +220,21 @@ namespace CatapultRework
     [HarmonyPatch(typeof(Player), nameof(Player.SetControls))]
     internal static class Player_SetControls_Patch
     {
-        private static void Prefix(Player __instance, ref Vector3 movedir, ref bool attack, ref bool attackHold)
+        // Right mouse button is bound to "Block" in Valheim (secondary attack is the middle button), and vanilla
+        // doodad control only exits on jump/attack/secondary attack/dodge, so RMB has to be handled here.
+        private static void Prefix(Player __instance, ref Vector3 movedir, ref bool attack, ref bool attackHold,
+            ref bool secondaryAttack, ref bool secondaryAttackHold, ref bool block, ref bool blockHold)
         {
             AimController a = AimController.Active;
             if (a == null || __instance != Player.m_localPlayer) return;
             a.SetMove(movedir);
             movedir = Vector3.zero;
+            if (block) a.RequestExit("RMB (block) pressed");
             if (attack) a.RequestFire();
             attack = false;
             attackHold = false;
+            block = false;
+            blockHold = false;
         }
     }
 
@@ -252,6 +260,19 @@ namespace CatapultRework
             AimController a = AimController.Active;
             if (a == null || __instance.m_freeFly) return;
             a.UpdateCamera(__instance, dt);
+        }
+    }
+
+    /// <summary>Hide the vanilla key hints (lower right) while aiming; the aiming view shows its own.</summary>
+    [HarmonyPatch(typeof(KeyHints), nameof(KeyHints.UpdateHints))]
+    internal static class KeyHints_UpdateHints_Patch
+    {
+        private static void Postfix(KeyHints __instance)
+        {
+            if (AimController.Active == null) return;
+            __instance.m_combatHints.SetActive(false);
+            __instance.m_buildHints.SetActive(false);
+            __instance.m_fishingHints.SetActive(false);
         }
     }
 }

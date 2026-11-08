@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace CatapultRework
 {
-    /// <summary>Marks a projectile fired by a catapult (debug logging only).</summary>
+    /// <summary>Marks a projectile fired by a catapult (used for damage ownership and debug logging).</summary>
     internal sealed class CatapultShotTag : MonoBehaviour
     {
         public string Ammo;
@@ -12,7 +12,7 @@ namespace CatapultRework
         public Vector3 AimedTarget;
     }
 
-    /// <summary>Marks an explosion (Aoe) spawned by a catapult projectile (debug logging only).</summary>
+    /// <summary>Marks an explosion (Aoe) spawned by a catapult projectile (used for damage ownership and debug logging).</summary>
     internal sealed class CatapultBlastTag : MonoBehaviour
     {
         public string Ammo;
@@ -22,7 +22,8 @@ namespace CatapultRework
     /// <summary>
     /// Debug-only tracing of what a catapult shot does after release: where it lands, what it hits,
     /// and for each explosion target the damage, tool tier and resistances. Read-only: nothing here
-    /// changes gameplay, and nothing runs unless DebugLogging is on.
+    /// changes gameplay. Shots and blasts are always tagged (Ownership.cs needs the tags); the rest
+    /// only runs when DebugLogging is on.
     /// </summary>
     internal static class Diagnostics
     {
@@ -56,7 +57,7 @@ namespace CatapultRework
     [HarmonyPatch(typeof(Catapult), nameof(Catapult.ShootProjectile))]
     internal static class Diag_ShootProjectile_Patch
     {
-        private static void Prefix(Catapult __instance) => Diagnostics.Firing = ModLog.DebugEnabled ? __instance : null;
+        private static void Prefix(Catapult __instance) => Diagnostics.Firing = __instance;
         private static void Postfix() => Diagnostics.Firing = null;
     }
 
@@ -66,12 +67,13 @@ namespace CatapultRework
         private static void Postfix(Projectile __instance, HitData hitData, ItemDrop.ItemData item)
         {
             Catapult c = Diagnostics.Firing;
-            if (c == null || !ModLog.DebugEnabled) return;
+            if (c == null) return;
             var tag = __instance.gameObject.AddComponent<CatapultShotTag>();
             tag.Ammo = item?.m_shared.m_name ?? "?";
             CatapultNet net = c.GetComponent<CatapultNet>();
             tag.Aimed = net != null && net.HasPendingTarget && c.m_lockedLegs;
             if (tag.Aimed) tag.AimedTarget = net.PendingTarget;
+            if (!ModLog.DebugEnabled) return;
             string spawn = __instance.m_spawnOnHit != null ? __instance.m_spawnOnHit.name : "nothing";
             ModLog.Debug($"Shot: {tag.Ammo} as '{__instance.name}', impact damage [{Diagnostics.Describe(__instance.m_damage)}], " +
                          $"tool tier {(hitData != null ? hitData.m_toolTier : 0)}, spawns on hit: {spawn}");
@@ -106,7 +108,7 @@ namespace CatapultRework
     internal static class Diag_SpawnOnHit_Patch
     {
         private static void Prefix(Projectile __instance) =>
-            Diagnostics.Spawning = ModLog.DebugEnabled ? __instance.GetComponent<CatapultShotTag>() : null;
+            Diagnostics.Spawning = __instance.GetComponent<CatapultShotTag>();
         private static void Postfix() => Diagnostics.Spawning = null;
     }
 
@@ -119,6 +121,7 @@ namespace CatapultRework
             if (shot == null) return;
             var tag = __instance.gameObject.AddComponent<CatapultBlastTag>();
             tag.Ammo = shot.Ammo;
+            if (!ModLog.DebugEnabled) return;
             ModLog.Debug($"Explosion '{__instance.gameObject.name}': radius {ModLog.F(__instance.m_radius)} m, damage [{Diagnostics.Describe(__instance.GetDamage())}], " +
                          $"tool tier {__instance.m_toolTier}, hits props {__instance.m_hitProps}, terrain {__instance.m_hitTerrain}, characters {__instance.m_hitCharacters}");
         }
